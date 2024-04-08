@@ -1,118 +1,114 @@
-/**
- * Sample React Native App
- * https://github.com/facebook/react-native
- *
- * @format
- */
+import React, {useEffect, useState} from 'react';
+import {Text, View, TextInput, TouchableOpacity, FlatList} from 'react-native';
+import styles from './Styles';
+import {Task} from './contract';
+import RenderItem from './RenderItem';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import React from 'react';
-import type {PropsWithChildren} from 'react';
-import {
-  SafeAreaView,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  useColorScheme,
-  View,
-} from 'react-native';
+const App = () => {
+  const [notes, setNotes] = useState('');
+  const [tasks, setTasks] = useState<Task[]>([]);
 
-import {
-  Colors,
-  DebugInstructions,
-  Header,
-  LearnMoreLinks,
-  ReloadInstructions,
-} from 'react-native/Libraries/NewAppScreen';
-
-type SectionProps = PropsWithChildren<{
-  title: string;
-}>;
-
-function Section({children, title}: SectionProps): React.JSX.Element {
-  const isDarkMode = useColorScheme() === 'dark';
-  return (
-    <View style={styles.sectionContainer}>
-      <Text
-        style={[
-          styles.sectionTitle,
-          {
-            color: isDarkMode ? Colors.white : Colors.black,
-          },
-        ]}>
-        {title}
-      </Text>
-      <Text
-        style={[
-          styles.sectionDescription,
-          {
-            color: isDarkMode ? Colors.light : Colors.dark,
-          },
-        ]}>
-        {children}
-      </Text>
-    </View>
-  );
-}
-
-function App(): React.JSX.Element {
-  const isDarkMode = useColorScheme() === 'dark';
-
-  const backgroundStyle = {
-    backgroundColor: isDarkMode ? Colors.darker : Colors.lighter,
+  //almacenamiento
+  const storeData = async (value:Task[]) => {
+    try {
+      await AsyncStorage.setItem('mytodo-tasks', JSON.stringify(value));
+    } catch (e) {
+      console.error(e);
+    }
   };
 
-  return (
-    <SafeAreaView style={backgroundStyle}>
-      <StatusBar
-        barStyle={isDarkMode ? 'light-content' : 'dark-content'}
-        backgroundColor={backgroundStyle.backgroundColor}
-      />
-      <ScrollView
-        contentInsetAdjustmentBehavior="automatic"
-        style={backgroundStyle}>
-        <Header />
-        <View
-          style={{
-            backgroundColor: isDarkMode ? Colors.black : Colors.white,
-          }}>
-          <Section title="Step One">
-            Edit <Text style={styles.highlight}>App.tsx</Text> to change this
-            screen and then come back to see your edits.
-          </Section>
-          <Section title="See Your Changes">
-            <ReloadInstructions />
-          </Section>
-          <Section title="Debug">
-            <DebugInstructions />
-          </Section>
-          <Section title="Learn More">
-            Read the docs to discover what to do next:
-          </Section>
-          <LearnMoreLinks />
-        </View>
-      </ScrollView>
-    </SafeAreaView>
-  );
-}
+  const getData = async () => {
+    try {
+      const value = await AsyncStorage.getItem('mytodo-tasks');
+      if (value !== null) {
+        const tasksLocal = JSON.parse(value)
+        setTasks(tasksLocal)
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
-const styles = StyleSheet.create({
-  sectionContainer: {
-    marginTop: 32,
-    paddingHorizontal: 24,
-  },
-  sectionTitle: {
-    fontSize: 24,
-    fontWeight: '600',
-  },
-  sectionDescription: {
-    marginTop: 8,
-    fontSize: 18,
-    fontWeight: '400',
-  },
-  highlight: {
-    fontWeight: '700',
-  },
-});
+  //logica
+
+  const addTask = () => {
+    const newTask = {
+      title: notes,
+      done: false,
+      date: new Date()
+    }
+    setTasks([...tasks, newTask])
+    storeData([...tasks, newTask])
+    setNotes("")
+  }
+  const markDone = (task:Task) => {
+    //me traigo los elementos
+    const tmp = [...tasks]
+    //indice del task con le mismo nombre
+    const index = tmp.findIndex((item) => item.title === task.title)
+    //saca el task por indice
+    const todo = tmp[index]
+    //cambia valor de done
+    todo.done = !todo.done
+    //se sube denuevo a los task
+    setTasks(tmp)
+    storeData(tmp)
+    // otra forma de hacerlo
+    /*const updatedTasks = tasks.map(item => {
+      if (item.title === task.title) {
+        // Creando un nuevo objeto con todas las propiedades de 'itemt', pero con 'done' invertido
+        return {...item, done: !item.done};
+      }
+      return item;
+    });
+    setTasks(updatedTasks); */
+  };
+  
+  const deleteFunc = (task:Task) => {
+    const tmp = [...tasks].filter((item) => item.title !== task.title )
+    setTasks(tmp)
+    storeData(tmp)
+  };
+
+  useEffect(() => {
+    getData()
+  }, [])
+
+  return (
+    <View style={styles.container}>
+      <Text style={styles.title}>Mis tareas por hacer</Text>
+      <View style={styles.inputContainer}>
+        <TextInput
+          placeholder="Agregar una tarea"
+          style={styles.textInput}
+          placeholderTextColor="#888"
+          onChangeText={(note: string) => {
+            setNotes(note);
+          }}
+          value={notes}
+        />
+        <TouchableOpacity 
+        style={styles.addButton}
+        onPress={addTask}
+        >
+          <Text style={styles.whiteText}>Agregar</Text>
+        </TouchableOpacity>
+      </View>
+      <View style={styles.scrollContainer}>
+        <FlatList
+          renderItem={({item}) => (
+            <RenderItem
+              item={item}
+              deleteFunc={deleteFunc}
+              markDone={markDone}
+            />
+          )}
+          data={tasks}
+        />
+      </View>
+    </View>
+  );
+};
 
 export default App;
